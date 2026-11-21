@@ -1,7 +1,6 @@
 # Developed by Anthony Villalobos 08/01/2025
 # Updated by Anthony Villalobos 23/09/2025
 
-import time
 from pathlib import Path
 
 import cv2
@@ -34,10 +33,11 @@ class DataExtractor:
         self.frames_per_sequence = frames_per_sequence
         self.logger = Utilities.setup_logging()
 
-    def process_video(self, video_path, confidence, transform=None):
+    def process_video(self, video_path, confidence, transform=None, *, preview=False):
         """This method is the one in charge of processing the video and extracting the keypoints from the specified video path.
         Variables:
         video_path: The path to the video file or directory containing videos.
+        preview: Display annotated frames in a window only when explicitly enabled.
         video_files: A list of video files to process.
         action: The action label derived from the video filename or directory name.
         sequence: The current sequence number for the action being processed.
@@ -124,17 +124,19 @@ class DataExtractor:
                     if not ret:
                         print(f"    No se pudo leer el frame {frame_idx}")
                         self.logger.error(f"    No se pudo leer el frame {frame_idx}")
-                        np.save(sequence_dir / f"{i}.npy", np.zeros(self.KEYPOINT_SIZE))  # Save empty keypoints if frame read fails
+                        np.save(
+                            sequence_dir / f"{i}.npy", np.zeros(self.KEYPOINT_SIZE)
+                        )  # Save empty keypoints if frame read fails
                         missing += 1
                         continue
 
                     if transform:
                         frame = transform(frame)
 
-                    image, keypoints, success = holistic.process_frame(frame, draw_results=True)
-                    # Remove the comment to show the video with the landmarks; used during development and not required now
-                    cv2.imshow("Video Detection", image)
-                    cv2.waitKey(1)
+                    image, keypoints, success = holistic.process_frame(frame, draw_results=preview)
+                    if preview:
+                        cv2.imshow("Video Detection", image)
+                        cv2.waitKey(1)
 
                     if success:
                         npy_path = sequence_dir / f"{i}.npy"
@@ -143,7 +145,9 @@ class DataExtractor:
                         self.logger.info(f"    Frame {i + 1}/{self.frames_per_sequence} guardado: {npy_path}")
                     else:
                         missing += 1
-                        np.save(sequence_dir / f"{i}.npy", keypoints)  # keypoints are already zeros when nothing was detected
+                        np.save(
+                            sequence_dir / f"{i}.npy", keypoints
+                        )  # keypoints are already zeros when nothing was detected
                         print(f"   Frame {i + 1} sin detección de landmarks, guardando keypoints vacíos")
                         self.logger.error(f"   Frame {i + 1} sin detección de landmarks, guardando keypoints vacíos")
 
@@ -158,11 +162,11 @@ class DataExtractor:
                     kept += 1
                     print(f"  Completada secuencia {sequence + 1}")
                     self.logger.info(f"  Completada secuencia {sequence + 1}")
-                time.sleep(1)
                 sequence += 1
 
         summary = f"Resumen {action}: {kept} secuencias guardadas, {dropped} descartadas"
         print(f"\n{summary}")
         self.logger.info(summary)
-        cv2.destroyAllWindows()
+        if preview:
+            cv2.destroyAllWindows()
         return None, None

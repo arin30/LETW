@@ -78,7 +78,9 @@ def _get_user_confidence(current_confidence: float) -> float:
     return Context.DEFAULT_CONFIDENCE
 
 
-def _create_video_processor(ctx: Context, confidence: float, directory: str | None = None) -> VideoBatchProcessor:
+def _create_video_processor(
+    ctx: Context, confidence: float, directory: str | None = None, *, preview: bool = False
+) -> VideoBatchProcessor:
     """Helper to create a VideoBatchProcessor instance with current context."""
     return VideoBatchProcessor(
         directory=directory,
@@ -87,6 +89,7 @@ def _create_video_processor(ctx: Context, confidence: float, directory: str | No
         frames=ctx.frames,
         confidence=confidence,
         mp_path=ctx.mp_path,
+        preview=preview,
     )
 
 
@@ -99,7 +102,8 @@ def cmd_create_project_directories(ctx: Context) -> bool:
 def cmd_video_editing_placeholder(ctx: Context) -> bool:
     return True  # Placeholder for future video editing command
 
-#Sub menu for option 3
+
+# Sub menu for option 3
 def cmd_extract_data_from_videos(ctx: Context) -> bool:
     """Extract keypoint data from video files."""
     confidence = _get_user_confidence(ctx.confidence)
@@ -110,6 +114,10 @@ def cmd_extract_data_from_videos(ctx: Context) -> bool:
     user_choice = input(Strings.ExtractData.INPUT_OPTION)
     logger.info(f"El usuario seleccionó {user_choice} en el menú de extracción de datos")
 
+    preview = False
+    if user_choice in ("1", "2"):
+        preview = input("¿Mostrar vista previa durante la extracción? [s/N]: ").strip().lower() == "s"
+
     if user_choice == "1":
         print(Strings.ExtractData.EXTRACTING_SPECIFIC)
         try:
@@ -117,7 +125,7 @@ def cmd_extract_data_from_videos(ctx: Context) -> bool:
             if not single_video_path or not Path(single_video_path).exists():
                 print(Strings.ExtractData.NO_VIDEO_SPECIFIED + "\n")
                 return True
-            processor = _create_video_processor(ctx, confidence, directory=single_video_path)
+            processor = _create_video_processor(ctx, confidence, directory=single_video_path, preview=preview)
             processor.extract_single_path()
         except Exception as e:
             logger.error(f"Error al procesar el video específico: {e}")
@@ -125,7 +133,7 @@ def cmd_extract_data_from_videos(ctx: Context) -> bool:
     elif user_choice == "2":
         try:
             print(Strings.ExtractData.EXTRACTING_ALL)
-            processor = _create_video_processor(ctx, confidence, directory=ctx.video_paths)
+            processor = _create_video_processor(ctx, confidence, directory=ctx.video_paths, preview=preview)
             processor.extract_parent_path()
         except Exception as e:
             logger.error(f"Error al procesar los videos en lote: {e}")
@@ -138,7 +146,7 @@ def cmd_extract_data_from_videos(ctx: Context) -> bool:
     return True
 
 
-# sub menu for option 4 
+# sub menu for option 4
 def cmd_process_video_batch(ctx: Context) -> bool:
     """Process a batch of videos."""
     confidence = _get_user_confidence(ctx.confidence)

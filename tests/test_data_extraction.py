@@ -50,7 +50,7 @@ class TestDataExtractor(unittest.TestCase):
             extractor = self.module.DataExtractor(repetitions, frames, ["HELLO"], self.root / "output")
         extractor.logger = self.logger
         output = StringIO()
-        with patch.object(self.module.time, "sleep"), redirect_stdout(output):
+        with patch("time.sleep", side_effect=AssertionError("unexpected delay")), redirect_stdout(output):
             extractor.process_video(path, confidence=0.5)
         return output.getvalue()
 
@@ -82,6 +82,19 @@ class TestDataExtractor(unittest.TestCase):
         self.assertIn("menos que los 5 necesarios", output)
         self.logger.warning.assert_called_once()
         self.assertIn("menos que los 5 necesarios", self.logger.warning.call_args.args[0])
+
+    def test_missing_detections_still_clear_rejected_sequences(self):
+        sequence = self.root / "output" / "HELLO" / "0"
+        sequence.mkdir(parents=True)
+        np.save(sequence / "stale.npy", [99])
+        self.holistic.return_value.__enter__.return_value.process_frame.return_value = (
+            np.zeros((2, 2, 3)),
+            np.zeros(1662),
+            False,
+        )
+        output = self.extract(self.root / "hello.mp4", repetitions=1)
+        self.assertEqual(list(sequence.glob("*.npy")), [])
+        self.assertIn("0 secuencias guardadas, 1 descartadas", output)
 
 
 if __name__ == "__main__":
